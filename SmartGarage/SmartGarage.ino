@@ -8,9 +8,13 @@
 #include "credentials.h"
 
 #define SERIAL_BAUDRATE                 115200
-#define PIN                             D1
+#define PIN                             D4
+#define INPUT_PIN                       D5        
+
+#define AUTO_CLOSE_TIME                 15 * 60000
 
 fauxmoESP fauxmo;
+bool doorClosed = true;
 
 // -----------------------------------------------------------------------------
 // Wifi
@@ -37,6 +41,13 @@ void wifiSetup() {
 
 }
 
+void toggleDoor() {
+  digitalWrite(PIN, HIGH);
+  for (int i = 0; i < 2000 ; i++) //delay() doesn't work.
+    Serial.println(i);
+  digitalWrite(PIN, LOW);
+}
+
 void setup() {
 
     // Init serial port and clean garbage
@@ -49,6 +60,7 @@ void setup() {
 
     // PIN
     pinMode(PIN, OUTPUT);
+    pinMode(INPUT_PIN, INPUT);
 
     // You can enable or disable the library at any moment
     // Disabling it will prevent the devices from being discovered and switched
@@ -61,9 +73,7 @@ void setup() {
     // this way it's easier to match devices to action without having to compare strings.
     fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state) {
         Serial.printf("[MAIN] Device #%d (%s) state: %s\n", device_id, device_name, state ? "ON" : "OFF");
-        digitalWrite(PIN, HIGH);
-        delay(500);
-        digitalWrite(PIN, LOW);
+        toggleDoor();
     });
 
     // Callback to retrieve current state (for GetBinaryState queries)
@@ -89,4 +99,12 @@ void loop() {
         Serial.printf("[MAIN] Free heap: %d bytes\n", ESP.getFreeHeap());
     }
 
+    doorClosed = !digitalRead(INPUT_PIN);
+
+    static unsigned long openTimer = millis();
+    if (!doorClosed && (millis() - openTimer > AUTO_CLOSE_TIME)) {
+      openTimer = millis();
+      toggleDoor();
+    }
+    
 }
