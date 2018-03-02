@@ -1,6 +1,6 @@
 #define OUTPUT_PIN                      D4
-#define INPUT_PIN                       D5        
-#define AUTO_CLOSE_TIME                 0.25 * 60000
+#define INPUT_PIN                       D6        
+#define AUTO_CLOSE_TIME                 20 * 60000
 
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
@@ -10,7 +10,7 @@ char auth[] = ".....";
 // Your WiFi credentials.
 // Set password to "" for open networks.
 char ssid[] = ".....";
-char pass[] = ".....!";
+char pass[] = ".....";
 
 bool doorClosed = true;
 
