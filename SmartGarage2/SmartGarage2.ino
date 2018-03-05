@@ -71,7 +71,7 @@ void loop()
 
   static unsigned long openTimer = millis();
   if (!DOOR_CLOSED) {
-    lcd.print(0,1, (String("Closing in ") + millisecondsToMinSec(AUTO_CLOSE_TIME - (millis() - openTimer))));
+    lcd.print(0,1, (millisecondsToMinSec(AUTO_CLOSE_TIME - (millis() - openTimer))));
     if ((millis() - openTimer > AUTO_CLOSE_TIME)) {
       openTimer = millis();
       toggleDoor();
