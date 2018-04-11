@@ -1,31 +1,35 @@
-#define PUMP_PIN 4 // For pump
-#define POT_SIGOUT_PIN 9
+#define PUMP_PIN 3 // For pump
+#define LED_PIN 9
 #define POT_SIGIN_PIN A0
 
-#define BLINK_DELAY 50
-#define PUMP_DELAY 50
-#define PUMP_INTERVAL 100 // TODO: Needs testing
+#define PUMP_PWM_VALUE 95 // Default 95
 int pot_map = 0;
 
 void setup() {                
   Serial.begin(9600);
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(POT_SIGIN_PIN, INPUT);
-  pinMode(POT_SIGOUT_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+  
+  analogWrite(PUMP_PIN, PUMP_PWM_VALUE);
 }
 
 void loop() {
   pot_map = map(analogRead(POT_SIGIN_PIN), 0, 1023, 0, 255);
   Serial.println(pot_map);
-  pulse(POT_SIGOUT_PIN, BLINK_DELAY,pot_map);
-  pulse(PUMP_PIN, PUMP_DELAY, PUMP_INTERVAL);
+  pulse(LED_PIN,pot_map);
 }
 
-void pulse(char pin, int pulseDelay int interval){
+// Need to make snapshot light a static delay. Delay between snapshots should be variable
+void pulse(char pin, int interval){
   digitalWrite(pin,1);
-  delay(pulseDelay);
+  delay(interval/2);
   digitalWrite(pin,0);
-  delay(interval);
+  delay(interval/2);
   return;
 }
 
+//Base Signal from Arduino
+//Collector LED Ground
+//Emitter Power Supply and Arduino Ground
+//Connect the Arduino ground and Power supply ground
