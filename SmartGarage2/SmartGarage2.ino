@@ -14,7 +14,9 @@ char ssid[] = ".....";
 char pass[] = ".....";
 
 bool DOOR_CLOSED = true;
-unsigned int AUTO_CLOSE_TIME = 20 * 60000;
+unsigned long AUTO_CLOSE_TIME = 30 * 60000;
+unsigned long previousMillis = 0;
+unsigned long currentMillis = 0;
 
 WidgetLCD lcd(V1);
 
@@ -34,14 +36,14 @@ void toggleDoor() {
   digitalWrite(OUTPUT_PIN, LOW);
 }
 
-String millisecondsToMinSec(int milliseconds) {
+String millisecondsToMinSec(unsigned long milliseconds) {
   return String(milliseconds/60000) + "m " + String((milliseconds/1000) % 60) +"s";
 }
 
 void initialize() {
-  Blynk.setProperty(DOOR_TIMER_PIN, "min", 5);
+  Blynk.setProperty(DOOR_TIMER_PIN, "min", 30);
   Blynk.setProperty(DOOR_TIMER_PIN, "max", 180);
-  Blynk.virtualWrite(DOOR_TIMER_PIN, 20);
+  Blynk.virtualWrite(DOOR_TIMER_PIN, AUTO_CLOSE_TIME/60000);
   Blynk.syncVirtual(DOOR_TIMER_PIN);
 }
 
@@ -69,17 +71,16 @@ void loop()
     lcd.print(0,0,"Door is OPEN!!!");
   }
 
-  static unsigned long openTimer = millis();
+  currentMillis = millis();
   if (!DOOR_CLOSED) {
-    lcd.print(0,1, (millisecondsToMinSec(AUTO_CLOSE_TIME - (millis() - openTimer))));
-    if ((millis() - openTimer > AUTO_CLOSE_TIME)) {
-      openTimer = millis();
+    lcd.print(0,1, (millisecondsToMinSec(AUTO_CLOSE_TIME - (unsigned long)(currentMillis - previousMillis))));
+    if (((unsigned long)(currentMillis - previousMillis) >= AUTO_CLOSE_TIME)) {
+      previousMillis = currentMillis;
       toggleDoor();
     }
   }
-  else
-  {
-    openTimer = millis();
+  else {
+    previousMillis = currentMillis;
   }
 
   lcd.clear();
