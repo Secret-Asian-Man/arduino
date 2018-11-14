@@ -22,13 +22,14 @@
 // Globals
 #define STEPS_PER_REVOLUTION 1600
 #define MAX_SPEED 200
+#define COLLISION_DISTANCE 12
+#define DEFAULT_AVOID_SPEED 0.4
+#define DEFAULT_SPEED 0.5
+
 
 // Sonar Pins
 #define TRIG_SONAR_PIN 12
 #define ECHO_SONAR_PIN 13
-
-// Sonar Globals
-double distance = 0.0;
 
 // RBG Pins
 #define RED_PIN 3
@@ -36,7 +37,7 @@ double distance = 0.0;
 #define BLUE_PIN 6
 
 // Enumerations
-enum Direction {no_direction, forwards, backwards, left, right}; // For highest level function
+enum Direction {forwards, left, right, backwards, no_direction}; // For highest level function
 enum Color {red, green, blue, white, yellow, cyan, magenta, no_color};
 
 // Function Declarations
@@ -56,6 +57,9 @@ void rainbowPattern(unsigned int delayTime=500);
 
 // Program start
 void setup(){
+  Serial.begin(9600);
+  randomSeed(analogRead(0));
+  
   pinMode(R_CLK_PIN, OUTPUT);
   pinMode(R_CW_PIN, OUTPUT);
   pinMode(L_CLK_PIN, OUTPUT);
@@ -70,22 +74,24 @@ void setup(){
   
   digitalWrite(L_CW_PIN, HIGH); // Sets left stepper to spin correctly. High is clockwise.
   digitalWrite(R_CW_PIN, LOW);
+
+//  rainbowPattern();
+//  policePattern();
 }
 
 
 void loop(){
+  move(random(3), DEFAULT_SPEED,1);
+//  for(unsigned int i=0; i<4; ++i){
+//    move(forwards, 0.2, 1);
+//    move(left,0.2, 1); 
+//  }
+//  
+//  for(unsigned int i=0; i<4; ++i){
+//    move(backwards, 0.2, 1);
+//    move(right,0.2, 1);
+//  }
 
-  move(forwards, 0.1);
-  move(left,0.1);
-  move(forwards, 0.1);
-  move(left,0.1);
-  move(forwards, 0.1);
-  move(left,0.1);
-  move(forwards, 0.1);
-  move(left,0.1);
-  
-  //policePattern();
-  //rainbowPattern();
 }
 
 
@@ -110,8 +116,16 @@ void move(Direction direction, float speed, double revolutions) // Highest level
   
   switch(direction){
     case forwards:
-      setColor(green);
-      goForwards(speed, revolutions);
+    if(getDistance()>COLLISION_DISTANCE){
+        setColor(green);
+        goForwards(speed, revolutions);
+      } else{
+        move(backwards, DEFAULT_AVOID_SPEED);
+        if(random(2)) //range from 0 to 1
+          move(left, DEFAULT_AVOID_SPEED);
+        else
+          move(right, DEFAULT_AVOID_SPEED);
+      }
     break;
     
     case backwards:
@@ -255,6 +269,8 @@ void stop(){
  *  
  */
 double getDistance(){
+  static double distance = 0.0;
+
   // Reset trig pin
   digitalWrite(TRIG_SONAR_PIN, LOW);
   delayMicroseconds(2);
@@ -264,9 +280,14 @@ double getDistance(){
   delayMicroseconds(10);
   digitalWrite(TRIG_SONAR_PIN, LOW);
 
+  distance = pulseIn(ECHO_SONAR_PIN, HIGH)*0.00665;
+  
+  //Serial.println(distance);
+  
   // Read returning pulse and format in inches
-  return (pulseIn(ECHO_SONAR_PIN, HIGH)*0.00665);
+  return (distance);
 }
+
 
 /* @Description
  *  Set LED colors at maximum brightness to 1 of 7 distinct colors.
@@ -281,7 +302,7 @@ void setColor(Color color){
    * Cyan = GB
    * Magenta = RB
    */
-
+    //nreturn; // disables lights
    switch(color){
     
     case red:
