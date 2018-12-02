@@ -1,3 +1,5 @@
+#include <NewPing.h> //https://playground.arduino.cc/Code/NewPing
+
 /*
  * Program:
  *  MIT 101 robot project.
@@ -21,15 +23,15 @@
 
 // Globals
 #define STEPS_PER_REVOLUTION 1600
-#define MAX_SPEED 200
+#define MAX_SPEED 200 // Delay in microseconds
 #define COLLISION_DISTANCE 12
 #define DEFAULT_AVOID_SPEED 0.4
 #define DEFAULT_SPEED 0.5
 
-
-// Sonar Pins
+// Sonar
 #define TRIG_SONAR_PIN 12
 #define ECHO_SONAR_PIN 13
+NewPing sonar(TRIG_SONAR_PIN, ECHO_SONAR_PIN);
 
 // RBG Pins
 #define RED_PIN 3
@@ -41,6 +43,8 @@ enum Direction {forwards, left, right, backwards, no_direction}; // For highest 
 enum Color {red, green, blue, white, yellow, cyan, magenta, no_color};
 
 // Function Declarations
+inline void pilotTest();
+
 void move(Direction direction=forwards, float speed=1.0, double revolutions=1.0);
 void goForwards(float step_delay, unsigned int steps);
 void goBackwards(float step_delay, unsigned int steps);
@@ -51,8 +55,8 @@ void stop();
 double getDistance();
 
 void setColor(Color color);
-void policePattern(unsigned int delayTime=100);
-void rainbowPattern(unsigned int delayTime=500);
+inline void policePattern(unsigned int delayTime=100);
+inline void rainbowPattern(unsigned int delayTime=500);
 
 
 // Program start
@@ -74,24 +78,14 @@ void setup(){
   
   digitalWrite(L_CW_PIN, HIGH); // Sets left stepper to spin correctly. High is clockwise.
   digitalWrite(R_CW_PIN, LOW);
-
-//  rainbowPattern();
-//  policePattern();
+  
 }
 
 
 void loop(){
-  move(random(3), DEFAULT_SPEED,1);
-//  for(unsigned int i=0; i<4; ++i){
-//    move(forwards, 0.2, 1);
-//    move(left,0.2, 1); 
-//  }
-//  
-//  for(unsigned int i=0; i<4; ++i){
-//    move(backwards, 0.2, 1);
-//    move(right,0.2, 1);
-//  }
 
+  move(random(3), DEFAULT_SPEED,1);
+  
 }
 
 
@@ -116,7 +110,7 @@ void move(Direction direction, float speed, double revolutions) // Highest level
   
   switch(direction){
     case forwards:
-    if(getDistance()>COLLISION_DISTANCE){
+    if(sonar.ping_in()>COLLISION_DISTANCE){
         setColor(green);
         goForwards(speed, revolutions);
       } else{
@@ -263,6 +257,32 @@ void stop(){
 
 
 /* @Description
+ *  Tests LEDS and motors. Drives in a square figure 8 pattern.
+ *  
+ * @Params 
+ * 
+ */
+inline void pilotTest(){
+  
+  rainbowPattern();
+  policePattern();
+  
+  for(unsigned int i=0; i<4; ++i){
+    move(forwards, 0.2, 1);
+    move(left,0.2, 1); 
+  }
+  
+  for(unsigned int i=0; i<4; ++i){
+    move(backwards, 0.2, 1);
+    move(right,0.2, 1);
+  }
+
+  return;
+}
+
+
+//Depreciated. Use NewPing library.
+/* @Description
  *  Reads from sonar and returns distance in inches.
  *  
  * @Params 
@@ -369,7 +389,7 @@ void setColor(Color color){
  * @Params 
  *  delayTime: delay between light flickers. Delay time in-between color changes is doubled.
  */
-void policePattern(unsigned int delayTime){
+inline void policePattern(unsigned int delayTime){
   
   delay(delayTime*2);
   setColor(red);
@@ -399,23 +419,12 @@ void policePattern(unsigned int delayTime){
  * @Params 
  *  delayTime: delay between light changes.
  */
-void rainbowPattern(unsigned int delayTime){
+inline void rainbowPattern(unsigned int delayTime){
 
-  delay(delayTime);
-  setColor(red);
-  delay(delayTime);
-  setColor(green);
-  delay(delayTime);
-  setColor(blue);
-  delay(delayTime);
-  setColor(white);
-  delay(delayTime);
-  setColor(yellow);
-  delay(delayTime);
-  setColor(cyan);
-  delay(delayTime);
-  setColor(magenta);
+  for(unsigned char i = 0; i<7; ++i){
+    delay(delayTime);
+    setColor(i);
+  }
 
   return;
 }
-
