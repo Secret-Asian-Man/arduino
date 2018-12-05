@@ -1,3 +1,5 @@
+#include <ArduinoSTL.h>
+#include <vector>
 #include <NewPing.h> //https://playground.arduino.cc/Code/NewPing
 
 /*
@@ -29,12 +31,71 @@
 #define DEFAULT_SPEED 0.5
 #define WHEEL_RADIUS 1.565 // Must be greater than 0
 
+
+// Mapping
+
+class Point{
+  public:
+    Point(long int new_x=0, long int new_y=0){
+      x = new_x;
+      y = new_y;
+    }
+    Point(const Point &new_point){
+      x = new_point.x;
+      y = new_point.y;
+    }
+
+    ~Point(){
+      x=y=0;    }
+  
+    long int getX(){return x;}
+    long int getY(){return y;}
+    
+    void setX(long int new_x){x = new_x;}
+    void setY(long int new_y){y = new_y;}
+    void incrementX(){++x;};
+    void incrementY(){++y;};
+    void decrementX(){--x;};
+    void decrementY(){--y;};
+
+  private:
+    long int x;
+    long int y;
+  };
+
+class Map{
+  public:
+  // Constructors
+  Map(Point new_destination){
+    current_pos = new Point;
+    destination = new Point(new_destination);
+  }
+  // Destructors
+  ~Map(){
+    obstacleLocations.clear();
+  }
+
+  Point* getCurrentPos(){return current_pos;}
+  Point* getDestination(){return destination;}
+
+  void setCurrentPos(Point* newPos){current_pos = newPos;}
+  void setCurrentDestination(Point* newDest){destination = newDest;}
+
+  std::vector<Point*> obstacleLocations;
+  private:
+    Point *current_pos;
+    Point *destination;
+};
+
+Map rover_map(new Point(3,3));
+
+  
 // Sonar
 #define TRIG_SONAR_PIN 12
 #define ECHO_SONAR_PIN 13
 NewPing sonar(TRIG_SONAR_PIN, ECHO_SONAR_PIN);
 
-// RBG Pins
+// RGB Pins
 #define RED_PIN 3
 #define GREEN_PIN 5
 #define BLUE_PIN 6
@@ -92,13 +153,15 @@ void setup(){
 
 void loop(){
 
+Serial.print(rover_map.getCurrentPos()->getX());
+Serial.print(rover_map.getCurrentPos()->getY());
 //  task1();
 //  delay(3000);
   
 //  task2();
 //  delay(3000);
 
-   task3();
+//   task3();
 
 //  task4();
   
@@ -153,7 +216,7 @@ inline void task3(){
 
 /* @Description
  *  Move a distance of approximately six feet between two pre-determine points.
- *  There will be 2-3 objects approximately 8 inches tall and 4 inches wide between 
+ *  There will be 2-3 objects approximately 8 inches tall and 4 inches wide between
  *  the two points that the robot will have to avoid.
  *  
  * @Params 
