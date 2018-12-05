@@ -27,6 +27,7 @@
 #define COLLISION_DISTANCE 12
 #define DEFAULT_AVOID_SPEED 0.4
 #define DEFAULT_SPEED 0.5
+#define WHEEL_RADIUS 1.565 // Must be greater than 0
 
 // Sonar
 #define TRIG_SONAR_PIN 12
@@ -45,14 +46,20 @@ enum Color {red, green, blue, white, yellow, cyan, magenta, no_color};
 // Function Declarations
 inline void pilotTest();
 
-void move(Direction direction=forwards, float speed=1.0, double revolutions=1.0);
+inline void task1();
+inline void task2();
+inline void task3();
+inline void task4();
+
+void move(Direction direction=forwards, float speed=1.0, int inches=12);
 void goForwards(float step_delay, unsigned int steps);
 void goBackwards(float step_delay, unsigned int steps);
 void rotateClockwise(float step_delay, unsigned int steps);
 void rotateCounterClockwise(float step_delay, unsigned int steps);
 void stop();
 
-double getDistance();
+double getDistance(); //Depreciated
+bool willCollide(double inches);
 
 void setColor(Color color);
 inline void policePattern(unsigned int delayTime=100);
@@ -61,6 +68,7 @@ inline void rainbowPattern(unsigned int delayTime=500);
 
 // Program start
 void setup(){
+  
   Serial.begin(9600);
   randomSeed(analogRead(0));
   
@@ -84,42 +92,114 @@ void setup(){
 
 void loop(){
 
-  move(random(3), DEFAULT_SPEED,1);
+//  task1();
+//  delay(3000);
   
+//  task2();
+//  delay(3000);
+
+   task3();
+
+//  task4();
+  
+}
+
+
+/* @Description
+ *  Move forward 3 feet.  Stop.  Wait 3 seconds.  Return to the starting position.
+ *  
+ * @Params 
+ */
+inline void task1(){
+  
+  move(forwards, DEFAULT_SPEED, 12*3); // Move forwards at 50% speed for 3 feet.
+  delay(1000);
+  move(backwards, DEFAULT_SPEED, 12*3); // Move backwards at 50% speed for 3 feet.
+  
+  return;
+  
+}
+
+
+/* @Description
+ *  Move in a 3 foot square, stopping at the original position.
+ *  
+ * @Params 
+ */
+inline void task2(){
+
+  for(int i=0; i<4; ++i){
+    move(forwards, DEFAULT_SPEED, 12*3); // Move forwards at 50% speed for 3 feet.
+    move(left, DEFAULT_AVOID_SPEED); // turn counter clockwise at 50% speed.
+  }
+
+  return;
+}
+
+
+/* @Description
+ *  Move randomly around the room avoiding obstacles. 
+ *  
+ * @Params 
+ */
+inline void task3(){
+
+  while (true)
+    move(random(3), DEFAULT_SPEED ,12); // Excluding backwards, move randomly at 50% speed in 1 foot increments.
+  
+  return;
+}
+
+
+/* @Description
+ *  Move a distance of approximately six feet between two pre-determine points.
+ *  There will be 2-3 objects approximately 8 inches tall and 4 inches wide between 
+ *  the two points that the robot will have to avoid.
+ *  
+ * @Params 
+ */
+inline void task4(){
+  
+  // Not enough info
+  
+  return;
 }
 
 
 /* @Description
  *  Highest level movement function, allowing user to manipulate the robot easily.
  *  
+ *  Warning: Collision check will only happen before going forwards.
+ *  
  * @Params 
  *  direction: consists of forwards, backwards, left, right, and no_direction
  *  speed: percentage of the max speed(MAX_SPEED). Must be be in the range 0.0 > speed >= 1.0
- *  revolutions: amount of full revolutions of the wheel consisting of 1600 steps for one revolution.
+ *  inches: distance to drive in inches. Will be ignored when turning.
  */
-void move(Direction direction, float speed, double revolutions) // Highest level function
+void move(Direction direction, float speed, int inches) // Highest level function
 {
-  if(speed > 1.0 || speed <= 0.0 || revolutions < 0){
+  if(speed > 1.0 || speed <= 0.0 || inches < 0){
     stop();
     policePattern();
     return;
   }
-  
+
+  double revolutions = inches/(2*PI*WHEEL_RADIUS); // converting inches to wheel revolutions.
   revolutions = revolutions * STEPS_PER_REVOLUTION; // Converting revolutions into steps for low level function calls.
   speed = (1/speed) * MAX_SPEED; // Converting speed percentage into a delay time for low level function calls.
   
   switch(direction){
     case forwards:
-    if(sonar.ping_in()>COLLISION_DISTANCE){
-        setColor(green);
-        goForwards(speed, revolutions);
-      } else{
+    if(willCollide(inches+3)){
         move(backwards, DEFAULT_AVOID_SPEED);
         if(random(2)) //range from 0 to 1
           move(left, DEFAULT_AVOID_SPEED);
         else
           move(right, DEFAULT_AVOID_SPEED);
-      }
+    } else{
+      setColor(green);
+      goForwards(speed, revolutions);
+    }
     break;
     
     case backwards:
@@ -129,12 +209,12 @@ void move(Direction direction, float speed, double revolutions) // Highest level
     
     case left:
       setColor(cyan);
-      rotateCounterClockwise(speed, revolutions*0.75);
+      rotateCounterClockwise(speed, 1200);
     break;
     
     case right:
       setColor(blue);
-      rotateClockwise(speed, revolutions*0.75);
+      rotateClockwise(speed, 1200);
     break;
     
     case no_direction:
@@ -306,6 +386,17 @@ double getDistance(){
   
   // Read returning pulse and format in inches
   return (distance);
+}
+
+
+/* @Description
+ *  Checks if there is any obstacle X inches away.
+ *  
+ * @Params 
+ * inches: number of inches of safety you want.
+ */
+bool willCollide(double inches){
+  return sonar.ping_in() < inches;
 }
 
 
