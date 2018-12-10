@@ -1,7 +1,3 @@
-#include <ArduinoSTL.h>
-#include <vector>
-#include <NewPing.h> //https://playground.arduino.cc/Code/NewPing
-
 /*
  * Program:
  *  MIT 101 robot project.
@@ -16,6 +12,12 @@
  *  11/10/2018 - David Wu - Initial creation
  *  
  */
+ 
+#include <ArduinoSTL.h>
+#include <vector>
+#include <NewPing.h> //https://playground.arduino.cc/Code/NewPing
+#include <SoftwareSerial.h>
+#include <BlynkSimpleSerialBLE.h>
 
 // Stepper Pins
 #define R_CLK_PIN 8
@@ -24,6 +26,7 @@
 #define L_CW_PIN 11
 
 // Globals
+#define GO_TO_COORDS Point(3.0,3.0)
 #define STEPS_PER_REVOLUTION 1600
 #define MAX_SPEED 200 // Delay in microseconds
 #define COLLISION_DISTANCE 12
@@ -31,65 +34,15 @@
 #define DEFAULT_SPEED 0.5
 #define WHEEL_RADIUS 1.565 // Must be greater than 0
 
+// Blynk
+#define BLYNK_PRINT Serial
+SoftwareSerial SwSerial(0,1);
+SoftwareSerial SerialBLE(0, 1); // RX, TX
+WidgetTerminal terminal(V3);
+char auth[] = "78069499143349babd0a6a90a870be30";
+String commands[] = {"speed", "go", "home", "rainbow", "police", "pilot"};
+bool manualMode = false;
 
-// Mapping
-
-class Point{
-  public:
-    Point(long int new_x=0, long int new_y=0){
-      x = new_x;
-      y = new_y;
-    }
-    Point(const Point &new_point){
-      x = new_point.x;
-      y = new_point.y;
-    }
-
-    ~Point(){
-      x=y=0;    }
-  
-    long int getX(){return x;}
-    long int getY(){return y;}
-    
-    void setX(long int new_x){x = new_x;}
-    void setY(long int new_y){y = new_y;}
-    void incrementX(){++x;};
-    void incrementY(){++y;};
-    void decrementX(){--x;};
-    void decrementY(){--y;};
-
-  private:
-    long int x;
-    long int y;
-  };
-
-class Map{
-  public:
-  // Constructors
-  Map(Point new_destination){
-    current_pos = new Point;
-    destination = new Point(new_destination);
-  }
-  // Destructors
-  ~Map(){
-    obstacleLocations.clear();
-  }
-
-  Point* getCurrentPos(){return current_pos;}
-  Point* getDestination(){return destination;}
-
-  void setCurrentPos(Point* newPos){current_pos = newPos;}
-  void setCurrentDestination(Point* newDest){destination = newDest;}
-
-  std::vector<Point*> obstacleLocations;
-  private:
-    Point *current_pos;
-    Point *destination;
-};
-
-Map rover_map(new Point(3,3));
-
-  
 // Sonar
 #define TRIG_SONAR_PIN 12
 #define ECHO_SONAR_PIN 13
@@ -103,6 +56,76 @@ NewPing sonar(TRIG_SONAR_PIN, ECHO_SONAR_PIN);
 // Enumerations
 enum Direction {forwards, left, right, backwards, no_direction}; // For highest level function
 enum Color {red, green, blue, white, yellow, cyan, magenta, no_color};
+
+// Mapping
+/*
+ * 1) Rover initializes at (0,0) and is given a destination (x,y)
+ * 2) Rover calculates the shortest path in an empty map and saves the directions in a queue. 
+ * 3) Rover follows the directions while checking next node for collision.
+ *      3a) If collision imminent, rover sets that next node as a wall.
+ *      3b) Rover recalculates the shortest path and saves the directions in a queue.
+ * 4) Profit.
+ */
+#define MAX_SIZE 100
+
+struct Point{
+    int x=0;
+    int y=0;
+  };
+
+class Map{
+  public:
+  // Constructors
+  Map(int dest_x=0, int dest_y=0){ 
+    current_pos = new Point; // Rover starts at (0,0)
+    destination = new Point;
+
+    destination->x = dest_x;
+    destination->y = dest_y;
+  }
+  
+  // Destructors
+  ~Map(){
+  }
+
+  Point* getCurrentPos(){return current_pos;}
+  Point* getDestination(){return destination;}
+
+  void setCurrentPos(Point* newPos){current_pos = newPos;}
+  void setCurrentDestination(Point* newDest){destination = newDest;}
+
+  private:
+    Point *current_pos;
+    Point *destination;
+    
+};
+
+
+class Node{
+  
+public:
+  Node(Point new_pos, bool new_isWall=0){
+    pos.x = new_pos.x;
+    pos.y = new_pos.y;
+
+    isWall = new_isWall;
+
+    g_cost = h_cost = f_cost = 0;
+  }
+
+  Point pos;
+
+  bool isWall;
+
+  Node *previous;
+
+  int g_cost; // Distance from starting node.
+  int h_cost; // Distance from ending node.
+  int f_cost; // g_cost + h_cost
+  
+};
+
+Map rover_map();
 
 // Function Declarations
 inline void pilotTest();
@@ -131,6 +154,8 @@ inline void rainbowPattern(unsigned int delayTime=500);
 void setup(){
   
   Serial.begin(9600);
+  SerialBLE.begin(9600);
+  Blynk.begin(SerialBLE, auth);
   randomSeed(analogRead(0));
   
   pinMode(R_CLK_PIN, OUTPUT);
@@ -147,21 +172,23 @@ void setup(){
   
   digitalWrite(L_CW_PIN, HIGH); // Sets left stepper to spin correctly. High is clockwise.
   digitalWrite(R_CW_PIN, LOW);
-  
+
+  terminal.clear();
+  terminal.flush();
 }
 
 
 void loop(){
-
-Serial.print(rover_map.getCurrentPos()->getX());
-Serial.print(rover_map.getCurrentPos()->getY());
+  Blynk.run();
+//  Serial.print(rover_map.getCurrentPos()->getX());
+//  Serial.print(rover_map.getCurrentPos()->getY());
 //  task1();
 //  delay(3000);
   
 //  task2();
 //  delay(3000);
 
-//   task3();
+//  task3();
 
 //  task4();
   
@@ -253,7 +280,7 @@ void move(Direction direction, float speed, int inches) // Highest level functio
   
   switch(direction){
     case forwards:
-    if(willCollide(inches+3)){
+    if(willCollide(inches+3) && !manualMode){
         move(backwards, DEFAULT_AVOID_SPEED);
         if(random(2)) //range from 0 to 1
           move(left, DEFAULT_AVOID_SPEED);
@@ -581,4 +608,94 @@ inline void rainbowPattern(unsigned int delayTime){
   }
 
   return;
+}
+
+/* @Description
+ *  Play Christmas light patterns.
+ *  
+ * @Params 
+ *  delayTime: delay between light changes.
+ */
+inline void christmasPattern(unsigned int delayTime){
+
+
+  return;
+}
+
+
+/* @Description
+ *  Turn manual mode on/off
+ *  
+ * @Params 
+ *  param: The state of the button
+ */
+BLYNK_WRITE(V0) {
+
+  manualMode = !manualMode;
+
+}
+
+
+/* @Description
+ *  Control RGB LEDS
+ *  
+ * @Params 
+ *  param: An array of 3 elements containing a value from 0 to 255 [red, green, blue]
+ */
+BLYNK_WRITE(V1) {
+  
+  digitalWrite(RED_PIN, param[0].asInt());
+  digitalWrite(GREEN_PIN, param[1].asInt());
+  digitalWrite(BLUE_PIN, param[2].asInt());
+  
+}
+
+
+/* @Description
+ *  Joystick control
+ *  
+ * @Params 
+ *  param: An array of 2 elements with a value of 0-255. [x, y]
+ *    default number is x=128 and y=128
+ */
+BLYNK_WRITE(V2) {
+
+  int x = param[0].asInt();
+  int y = param[1].asInt();
+
+  // Values will NOT be 0 at this point.
+  if(!x) // Rotation
+    rotateCounterClockwise(1200, 200);
+  if(x==2)
+    rotateClockwise(1200, 200);
+  if(y==2) // Forwards/backwards
+    goForwards(1600*4, 200);
+  if(!y)
+    goBackwards(1600*4, 200); 
+
+}
+
+
+/* @Description
+ *  Terminal control
+ *  
+ * @Params 
+ *  param: A string sent from your smartphone.
+ */
+BLYNK_WRITE(V3){
+
+  // if you type "Marco" into Terminal Widget - it will respond: "Polo:"
+  if (String("Marco") == param.asStr()) {
+    terminal.println("You said: 'Marco'") ;
+    terminal.println("I said: 'Polo'") ;
+  } else {
+
+    // Send it back
+    terminal.print("You said:");
+    terminal.write(param.getBuffer(), param.getLength());
+    terminal.println();
+  }
+
+  // Ensure everything is sent
+  terminal.flush();
 }
